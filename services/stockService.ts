@@ -47,12 +47,8 @@ const removeStockQuantity = (id: number, quantityToRemove: number): void => {
     const itemIndex = stock.findIndex(item => item.id === id);
     if (itemIndex > -1) {
         const newQuantity = stock[itemIndex].quantity - quantityToRemove;
-        if (newQuantity <= 0) {
-            // If quantity becomes 0 or less, remove the item
-            stock.splice(itemIndex, 1);
-        } else {
-            stock[itemIndex].quantity = newQuantity;
-        }
+        // For items in general stock (which this function serves via the UI), set quantity to 0 instead of removing.
+        stock[itemIndex].quantity = Math.max(0, newQuantity);
         saveStock(stock);
     }
 };

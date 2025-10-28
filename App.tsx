@@ -109,7 +109,9 @@ const AppContent: React.FC = () => {
           }
       }
       
-      const updatedStock = currentStock.filter(s => s.quantity > 0);
+      // Keep items in general stock even if quantity is 0.
+      // Remove items from quintas if their quantity becomes 0.
+      const updatedStock = currentStock.filter(s => s.quantity > 0 || !s.quintaName);
       stockService.updateStock(updatedStock);
       setStock(updatedStock);
   };

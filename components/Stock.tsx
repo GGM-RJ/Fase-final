@@ -81,33 +81,9 @@ const Stock: React.FC<StockProps> = ({ stock, onAddWine, onDeleteWine, onAddStoc
             </button>
           )}
         </div>
-
-        {/* Estoque nas Quintas - Summary */}
-        <div className="mb-8">
-            <h3 className="text-xl font-bold text-gray-700 mb-4">Stock nas Quintas</h3>
-             <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                    <tr>
-                        <th scope="col" className="px-6 py-3">Quinta</th>
-                        <th scope="col" className="px-6 py-3 text-right">Total de Garrafas</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {quintaStockSummary.map((item) => (
-                        <tr key={item.quintaName} className="bg-white border-b hover:bg-gray-50">
-                            <td className="px-6 py-4 font-medium">{item.quintaName}</td>
-                            <td className="px-6 py-4 text-right font-bold text-gray-800">{item.totalQuantity}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-                {quintaStockSummary.length === 0 && <p className="text-center text-gray-500 py-4">Nenhum item em stock nas quintas.</p>}
-            </div>
-        </div>
         
         {/* Estoque Geral - Detailed List */}
-        <div>
+        <div className="mb-8">
             <h3 className="text-xl font-bold text-gray-700 mb-4">Stock Geral</h3>
 
             <div className="mb-6">
@@ -165,6 +141,30 @@ const Stock: React.FC<StockProps> = ({ stock, onAddWine, onDeleteWine, onAddStoc
                 </button>
               </div>
             )}
+        </div>
+        
+        {/* Estoque nas Quintas - Summary */}
+        <div>
+            <h3 className="text-xl font-bold text-gray-700 mb-4">Stock nas Quintas</h3>
+             <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-500">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" className="px-6 py-3">Quinta</th>
+                        <th scope="col" className="px-6 py-3 text-right">Total de Garrafas</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {quintaStockSummary.map((item) => (
+                        <tr key={item.quintaName} className="bg-white border-b hover:bg-gray-50">
+                            <td className="px-6 py-4 font-medium">{item.quintaName}</td>
+                            <td className="px-6 py-4 text-right font-bold text-gray-800">{item.totalQuantity}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                {quintaStockSummary.length === 0 && <p className="text-center text-gray-500 py-4">Nenhum item em stock nas quintas.</p>}
+            </div>
         </div>
       </div>
       {canAddWine && (
