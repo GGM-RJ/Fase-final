@@ -7,10 +7,9 @@ interface AdjustStockModalProps {
     wine: StockItem | null;
     onAddQuantity: (id: number, quantity: number) => void;
     onRemoveQuantity: (id: number, quantity: number) => void;
-    onDelete: (id: number) => void;
 }
 
-const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wine, onAddQuantity, onRemoveQuantity, onDelete }) => {
+const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wine, onAddQuantity, onRemoveQuantity }) => {
     const [quantityToAdd, setQuantityToAdd] = useState<number | ''>('');
     const [quantityToRemove, setQuantityToRemove] = useState<number | ''>('');
     const [error, setError] = useState('');
@@ -49,13 +48,6 @@ const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wi
         }
         onRemoveQuantity(wine.id, numQuantity);
         onClose();
-    };
-
-    const handleDelete = () => {
-        if (window.confirm('Tem certeza de que deseja excluir este vinho completamente? Esta ação não pode ser desfeita.')) {
-            onDelete(wine.id);
-            onClose();
-        }
     };
 
     return (
@@ -113,21 +105,6 @@ const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wi
                     
                     {error && <p className="text-xs text-red-500 mt-2 text-center">{error}</p>}
 
-                    <div className="relative pt-4">
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div className="w-full border-t border-gray-300" />
-                        </div>
-                        <div className="relative flex justify-center">
-                            <span className="bg-white px-2 text-sm text-gray-500">ou</span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleDelete}
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                    >
-                        Excluir Vinho Completamente do Stock
-                    </button>
                 </div>
 
                 <div className="mt-6 flex justify-end">
@@ -136,7 +113,7 @@ const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wi
                         onClick={onClose}
                         className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                     >
-                        Cancelar
+                        Fechar
                     </button>
                 </div>
             </div>

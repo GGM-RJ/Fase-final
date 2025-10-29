@@ -153,6 +153,33 @@ const AppContent: React.FC = () => {
           alert("Apenas supervisores podem excluir vinhos.");
           return;
       }
+
+      const currentStock = stockService.getStock();
+      const wineToDelete = currentStock.find(item => item.id === id);
+
+      if (!wineToDelete) {
+          alert("Vinho não encontrado.");
+          return;
+      }
+
+      // Check 1: Quantity must be 0
+      if (wineToDelete.quantity > 0) {
+          alert(`Não é possível excluir o vinho "${wineToDelete.brand} - ${wineToDelete.wineName}" pois ainda existem ${wineToDelete.quantity} garrafas no Stock Geral. Ajuste a quantidade para 0 antes de excluir.`);
+          return;
+      }
+
+      // Check 2: Must not exist in any Quinta's stock
+      const isInQuintaStock = currentStock.some(item => 
+          item.brand === wineToDelete.brand &&
+          item.wineName === wineToDelete.wineName &&
+          item.quintaName // This item is in a quinta's stock
+      );
+
+      if (isInQuintaStock) {
+          alert(`Este vinho não pode ser excluído pois ainda existe stock em uma ou mais quintas. Transfira todo o stock para o "Stock Geral" e zere a quantidade antes de excluir.`);
+          return;
+      }
+
       stockService.deleteWine(id);
       setStock(stockService.getStock()); // Re-fetch to update UI
   };

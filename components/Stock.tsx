@@ -115,12 +115,22 @@ const Stock: React.FC<StockProps> = ({ stock, onAddWine, onDeleteWine, onAddStoc
                           <td className="px-6 py-4">{item.wineType}</td>
                           <td className="px-6 py-4 text-right font-bold text-gray-800">{item.quantity}</td>
                           {canDeleteWine && (
-                            <td className="px-6 py-4 text-center">
+                            <td className="px-6 py-4 text-center space-x-4">
                                 <button 
                                     onClick={() => handleOpenAdjustModal(item)}
+                                    className="font-medium text-purple-600 hover:underline"
+                                >
+                                    Ajustar
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm(`Tem certeza que deseja excluir o vinho ${item.brand} - ${item.wineName} do stock geral? Esta ação não pode ser desfeita.`)) {
+                                            onDeleteWine(item.id);
+                                        }
+                                    }}
                                     className="font-medium text-red-600 hover:underline"
                                 >
-                                    Ajustar / Excluir
+                                    Excluir
                                 </button>
                             </td>
                           )}
@@ -181,7 +191,6 @@ const Stock: React.FC<StockProps> = ({ stock, onAddWine, onDeleteWine, onAddStoc
             wine={selectedWine}
             onAddQuantity={onAddStockQuantity}
             onRemoveQuantity={onRemoveStockQuantity}
-            onDelete={onDeleteWine}
         />
       )}
     </>

@@ -21,6 +21,17 @@ const getStatusBadge = (status: TransferStatus) => {
     }
 }
 
+const getMovementTypeBadge = (type: 'Entrada' | 'Saída') => {
+    switch (type) {
+        case 'Entrada':
+            return 'bg-blue-100 text-blue-800';
+        case 'Saída':
+            return 'bg-orange-100 text-orange-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+}
+
 const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedQuinta, setSelectedQuinta] = useState<string>('Todas');
@@ -68,6 +79,7 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
                 <tr>
                     <td>${new Date(log.date).toLocaleString()}</td>
                     <td>${log.brand} - ${log.wineName}</td>
+                    <td>${log.movementType}</td>
                     <td>${statusCell}</td>
                     <td style="text-align: right;">${log.quantity}</td>
                     <td>${log.fromQuinta}</td>
@@ -83,6 +95,7 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
                     <tr>
                         <th>Data e Hora</th>
                         <th>Vinho</th>
+                        <th>Tipo</th>
                         <th>Status</th>
                         <th style="text-align: right;">Qtd</th>
                         <th>De</th>
@@ -163,6 +176,7 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
             'Data e Hora': new Date(log.date).toLocaleString(),
             'Marca': log.brand,
             'Vinho': log.wineName,
+            'Tipo': log.movementType,
             'Quantidade': log.quantity,
             'Origem': log.fromQuinta,
             'Destino': log.toQuinta,
@@ -228,6 +242,7 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
                         <tr>
                             <th scope="col" className="px-6 py-3">Data e Hora</th>
                             <th scope="col" className="px-6 py-3">Vinho</th>
+                            <th scope="col" className="px-6 py-3 text-center">Tipo</th>
                             <th scope="col" className="px-6 py-3 text-right">Qtd</th>
                             <th scope="col" className="px-6 py-3">De</th>
                             <th scope="col" className="px-6 py-3">Para</th>
@@ -240,6 +255,11 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
                             <tr key={log.id} className="bg-white border-b hover:bg-gray-50">
                                 <td className="px-6 py-4">{new Date(log.date).toLocaleString()}</td>
                                 <td className="px-6 py-4 font-medium">{log.brand} - {log.wineName}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getMovementTypeBadge(log.movementType)}`}>
+                                        {log.movementType}
+                                    </span>
+                                </td>
                                 <td className="px-6 py-4 text-right font-bold">{log.quantity}</td>
                                 <td className="px-6 py-4">{log.fromQuinta}</td>
                                 <td className="px-6 py-4">{log.toQuinta}</td>
@@ -255,7 +275,7 @@ const Historico: React.FC<HistoricoProps> = ({ transferHistory }) => {
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={7} className="text-center text-gray-500 py-8">
+                                <td colSpan={8} className="text-center text-gray-500 py-8">
                                     Nenhum registro encontrado para o filtro selecionado.
                                 </td>
                             </tr>
