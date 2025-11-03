@@ -29,6 +29,7 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
     
     // State for adding a single item
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedBrand, setSelectedBrand] = useState('Todas as Marcas');
     const [selectedWineIdentifier, setSelectedWineIdentifier] = useState<string>('');
     const [quantity, setQuantity] = useState<number | ''>('');
     
@@ -56,12 +57,31 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
         }
     }, [isConsumption]);
 
+    const availableBrands = useMemo(() => {
+        if (!fromQuinta) return ['Todas as Marcas'];
+        const fromIdentifier = fromQuinta === 'Stock Geral' ? undefined : fromQuinta;
+        
+        const availableStockInQuinta = stock.filter(item => {
+            if (item.quintaName !== fromIdentifier || item.quantity <= 0) return false;
+            return !transferItems.some(added => added.brand === item.brand && added.wineName === item.wineName);
+        });
+
+        const brands = new Set<string>();
+        availableStockInQuinta.forEach(item => brands.add(item.brand));
+        
+        return ['Todas as Marcas', ...Array.from(brands).sort()];
+    }, [stock, fromQuinta, transferItems]);
+
     const availableWines = useMemo(() => {
         if (!fromQuinta) return [];
 
         const fromIdentifier = fromQuinta === 'Stock Geral' ? undefined : fromQuinta;
-        const stockToFilter = stock.filter(item => item.quintaName === fromIdentifier && item.quantity > 0);
+        let stockToFilter = stock.filter(item => item.quintaName === fromIdentifier && item.quantity > 0);
         
+        if (selectedBrand !== 'Todas as Marcas') {
+            stockToFilter = stockToFilter.filter(item => item.brand === selectedBrand);
+        }
+
         const wines = new Map<string, { brand: string, wineName: string }>();
         stockToFilter.forEach(item => {
             const key = `${item.brand} - ${item.wineName}`;
@@ -71,11 +91,11 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
             }
         });
 
-        const wineList = Array.from(wines.values()).map(w => `${w.brand} - ${w.wineName}`).sort();
+        let wineList = Array.from(wines.values()).map(w => `${w.brand} - ${w.wineName}`).sort();
         
         if (!searchTerm) return wineList;
         return wineList.filter(wine => wine.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [stock, searchTerm, fromQuinta, transferItems]);
+    }, [stock, searchTerm, fromQuinta, transferItems, selectedBrand]);
     
     useEffect(() => {
         // Auto-select wine if the search narrows down to a single option.
@@ -170,6 +190,7 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
         setSelectedWineIdentifier('');
         setQuantity('');
         setSearchTerm('');
+        setSelectedBrand('Todas as Marcas');
         if (!isQuintaUser) setFromQuinta('');
         setToQuinta('');
         if (!isQuintaUser) setRequesterName(currentUser?.name || '');
@@ -190,7 +211,18 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="fromQuinta" className={`${labelClasses} required`}>Quinta de Origem *</label>
-                            <select id="fromQuinta" value={fromQuinta} onChange={e => setFromQuinta(e.target.value)} className={inputClasses} disabled={isQuintaUser || transferItems.length > 0} required>
+                            <select 
+                                id="fromQuinta" 
+                                value={fromQuinta} 
+                                onChange={e => {
+                                    setFromQuinta(e.target.value);
+                                    setSelectedBrand('Todas as Marcas');
+                                    setSelectedWineIdentifier('');
+                                }} 
+                                className={inputClasses} 
+                                disabled={isQuintaUser || transferItems.length > 0} 
+                                required
+                            >
                                 <option value="">Selecione a origem</option>
                                 <option value="Stock Geral">Stock Geral</option>
                                 {allQuintaNames.map(loc => <option key={loc} value={loc}>{loc}</option>)}
@@ -236,16 +268,32 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                      {!fromQuinta && <div className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md border border-yellow-200">Selecione uma Quinta de Origem para começar a adicionar vinhos.</div>}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                          <div>
-                            <label htmlFor="search-wine" className={labelClasses}>Pesquisar Vinho</label>
-                            <input id="search-wine" type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={inputClasses} placeholder="Filtrar vinhos disponíveis..."/>
-                        </div>
-                        <div>
-                            <label htmlFor="wine" className={`${labelClasses} required`}>Vinho a ser Movimentado *</label>
-                            <select id="wine" value={selectedWineIdentifier} onChange={e => setSelectedWineIdentifier(e.target.value)} className={inputClasses}>
-                                <option value="">Selecione um vinho</option>
-                                {availableWines.map(wine => <option key={wine} value={wine}>{wine}</option>)}
+                            <label htmlFor="brand-filter" className={labelClasses}>Pesquisar pela Marca</label>
+                            <select 
+                                id="brand-filter" 
+                                value={selectedBrand} 
+                                onChange={e => {
+                                    setSelectedBrand(e.target.value);
+                                    setSelectedWineIdentifier('');
+                                }} 
+                                className={inputClasses}
+                            >
+                                {availableBrands.map(brand => (
+                                    <option key={brand} value={brand}>{brand}</option>
+                                ))}
                             </select>
+                         </div>
+                         <div>
+                            <label htmlFor="search-wine" className={labelClasses}>Pesquisar por Nome do Vinho</label>
+                            <input id="search-wine" type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={inputClasses} placeholder="Filtrar vinhos..."/>
                         </div>
+                    </div>
+                    <div>
+                        <label htmlFor="wine" className={`${labelClasses} required`}>Vinho a ser Movimentado *</label>
+                        <select id="wine" value={selectedWineIdentifier} onChange={e => setSelectedWineIdentifier(e.target.value)} className={inputClasses}>
+                            <option value="">Selecione um vinho</option>
+                            {availableWines.map(wine => <option key={wine} value={wine}>{wine}</option>)}
+                        </select>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                         <div>
