@@ -38,27 +38,68 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
 
     const isQuintaUser = currentUser?.role === 'Quinta';
 
+    // Handle Quinta User defaults and Movement Type switching
     useEffect(() => {
         if (isQuintaUser && currentUser.quintaName) {
-            setFromQuinta(currentUser.quintaName);
             setRequesterName(currentUser.name);
+
+            if (movementType === 'Saída') {
+                // Moving OUT of the Quinta
+                setFromQuinta(currentUser.quintaName);
+                if (toQuinta === currentUser.quintaName || toQuinta === 'Ajuste de Stock') {
+                    setToQuinta('');
+                }
+            } else {
+                // Moving INTO the Quinta (Entry)
+                setFromQuinta('Ajuste de Stock');
+                setToQuinta(currentUser.quintaName);
+            }
         } else {
-             setRequesterName(currentUser?.name || '');
+             // Non-Quinta users (Supervisors) default requester name
+             if (!requesterName) setRequesterName(currentUser?.name || '');
         }
-    }, [currentUser, isQuintaUser]);
+    }, [currentUser, isQuintaUser, movementType]);
     
      useEffect(() => {
         if (isConsumption) {
             setToQuinta('Consumo');
         } else {
+            // Reset if toggled off
             if (toQuinta === 'Consumo') {
-                setToQuinta('');
+                if (isQuintaUser && movementType === 'Entrada') {
+                     setToQuinta(currentUser?.quintaName || '');
+                } else {
+                     setToQuinta('');
+                }
             }
         }
-    }, [isConsumption]);
+    }, [isConsumption, isQuintaUser, movementType, currentUser]);
 
+
+    // 1. Get the Full Catalog (All existing wines in the system, regardless of stock)
+    const systemCatalog = useMemo(() => {
+        const catalog = new Map<string, { brand: string, wineName: string }>();
+        stock.forEach(item => {
+            const key = `${item.brand} - ${item.wineName}`;
+            if (!catalog.has(key)) {
+                catalog.set(key, { brand: item.brand, wineName: item.wineName });
+            }
+        });
+        return Array.from(catalog.values());
+    }, [stock]);
+
+
+    // 2. Determine Available Brands based on Movement Type
     const availableBrands = useMemo(() => {
-        if (!fromQuinta) return ['Todas as Marcas'];
+        // If ENTRY, show all brands in the system
+        if (movementType === 'Entrada') {
+            const brands = new Set(systemCatalog.map(i => i.brand));
+            return ['Todas as Marcas', ...Array.from(brands).sort()];
+        }
+
+        // If EXIT (Saída), preserve existing logic (show only what is in stock at fromQuinta)
+        if (!fromQuinta || fromQuinta === 'Ajuste de Stock') return ['Todas as Marcas'];
+        
         const fromIdentifier = fromQuinta === 'Stock Geral' ? undefined : fromQuinta;
         
         const availableStockInQuinta = stock.filter(item => {
@@ -70,10 +111,28 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
         availableStockInQuinta.forEach(item => brands.add(item.brand));
         
         return ['Todas as Marcas', ...Array.from(brands).sort()];
-    }, [stock, fromQuinta, transferItems]);
+    }, [stock, fromQuinta, transferItems, movementType, systemCatalog]);
 
+
+    // 3. Determine Available Wines based on Movement Type & Selected Brand
     const availableWines = useMemo(() => {
-        if (!fromQuinta) return [];
+        // If ENTRY, show all wines in the catalog matching filters
+        if (movementType === 'Entrada') {
+            let filteredCatalog = systemCatalog;
+
+            if (selectedBrand !== 'Todas as Marcas') {
+                filteredCatalog = filteredCatalog.filter(w => w.brand === selectedBrand);
+            }
+
+            let wineList = filteredCatalog.map(w => `${w.brand} - ${w.wineName}`).sort();
+             if (searchTerm) {
+                wineList = wineList.filter(wine => wine.toLowerCase().includes(searchTerm.toLowerCase()));
+            }
+            return wineList;
+        }
+
+        // If EXIT (Saída), preserve existing logic
+        if (!fromQuinta || fromQuinta === 'Ajuste de Stock') return [];
 
         const fromIdentifier = fromQuinta === 'Stock Geral' ? undefined : fromQuinta;
         let stockToFilter = stock.filter(item => item.quintaName === fromIdentifier && item.quantity > 0);
@@ -95,15 +154,12 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
         
         if (!searchTerm) return wineList;
         return wineList.filter(wine => wine.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [stock, searchTerm, fromQuinta, transferItems, selectedBrand]);
+    }, [stock, searchTerm, fromQuinta, transferItems, selectedBrand, movementType, systemCatalog]);
     
     useEffect(() => {
-        // Auto-select wine if the search narrows down to a single option.
         if (availableWines.length === 1) {
             setSelectedWineIdentifier(availableWines[0]);
         } else if (selectedWineIdentifier && !availableWines.includes(selectedWineIdentifier)) {
-            // Clear selection if it's no longer in the list of available options.
-            // This happens when the search term changes and the selection is filtered out.
             setSelectedWineIdentifier('');
         }
     }, [availableWines, selectedWineIdentifier]);
@@ -116,7 +172,10 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
     }, [selectedWineIdentifier]);
     
     const availableQuantity = useMemo(() => {
-        if (!selectedWineInfo || !fromQuinta) return 0;
+        // If ENTRY, Quantity is virtually unlimited (adding stock)
+        if (movementType === 'Entrada') return 999999;
+
+        if (!selectedWineInfo || !fromQuinta || fromQuinta === 'Ajuste de Stock') return 0;
         const fromIdentifier = fromQuinta === 'Stock Geral' ? undefined : fromQuinta;
         const stockItem = stock.find(item => 
             item.brand === selectedWineInfo.brand &&
@@ -124,7 +183,7 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
             item.quintaName === fromIdentifier
         );
         return stockItem?.quantity || 0;
-    }, [stock, selectedWineInfo, fromQuinta]);
+    }, [stock, selectedWineInfo, fromQuinta, movementType]);
     
     const allQuintaNames = quintaService.getQuintas().map(q => q.name);
 
@@ -142,7 +201,8 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
             return;
         }
 
-        if (numQuantity > availableQuantity) {
+        // Only enforce max quantity if NOT an entry
+        if (movementType !== 'Entrada' && numQuantity > availableQuantity) {
             setError(`Quantidade indisponível. Máximo em estoque: ${availableQuantity}`);
             return;
         }
@@ -191,9 +251,21 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
         setQuantity('');
         setSearchTerm('');
         setSelectedBrand('Todas as Marcas');
-        if (!isQuintaUser) setFromQuinta('');
-        setToQuinta('');
-        if (!isQuintaUser) setRequesterName(currentUser?.name || '');
+        
+        // Reset Logic
+        if (!isQuintaUser) {
+             setFromQuinta('');
+             setToQuinta('');
+             setRequesterName(currentUser?.name || '');
+        } else {
+             // If Quinta user, reset depending on movement type
+             if (movementType === 'Entrada') {
+                 setFromQuinta('Ajuste de Stock');
+             } else {
+                 setToQuinta('');
+             }
+        }
+        
         setToWhom('');
         setIsConsumption(false);
         alert('Solicitação de transferência registrada com sucesso para todos os itens!');
@@ -202,15 +274,32 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
     const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed";
     const labelClasses = "block text-sm font-medium text-gray-700";
 
+    // Dynamic label for "From Quinta"
+    const fromQuintaLabel = movementType === 'Entrada' ? "Origem (Ajuste de Stock)" : "Quinta de Origem";
+
     return (
         <div className="bg-white p-8 rounded-xl shadow-sm max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Movimentar Vinhos</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
                  <fieldset className="space-y-4 border p-4 rounded-md">
                     <legend className="text-lg font-semibold px-2 text-gray-700">1. Detalhes da Transferência</legend>
+                    
+                    <div>
+                        <label htmlFor="movementType" className={`${labelClasses} required`}>Tipo de Movimento *</label>
+                        <select id="movementType" value={movementType} onChange={e => setMovementType(e.target.value as 'Entrada' | 'Saída')} className={inputClasses + " max-w-xs"} required>
+                            <option value="Saída">Saída / Transferência</option>
+                            <option value="Entrada">Entrada / Ajuste de Stock</option>
+                        </select>
+                         <p className="text-xs text-gray-500 mt-1">
+                            {movementType === 'Entrada' 
+                                ? 'Use "Entrada" para adicionar garrafas ao estoque (produção, compras, devoluções).' 
+                                : 'Use "Saída" para transferir vinhos entre quintas ou para consumo.'}
+                        </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="fromQuinta" className={`${labelClasses} required`}>Quinta de Origem *</label>
+                            <label htmlFor="fromQuinta" className={`${labelClasses} required`}>{fromQuintaLabel} *</label>
                             <select 
                                 id="fromQuinta" 
                                 value={fromQuinta} 
@@ -220,10 +309,12 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                                     setSelectedWineIdentifier('');
                                 }} 
                                 className={inputClasses} 
-                                disabled={isQuintaUser || transferItems.length > 0} 
+                                // Disable if Quinta User is doing Output (Locked to them) OR Input (Locked to Produção)
+                                disabled={(isQuintaUser && movementType === 'Saída') || (isQuintaUser && movementType === 'Entrada') || transferItems.length > 0} 
                                 required
                             >
                                 <option value="">Selecione a origem</option>
+                                <option value="Ajuste de Stock">Ajuste de Stock</option>
                                 <option value="Stock Geral">Stock Geral</option>
                                 {allQuintaNames.map(loc => <option key={loc} value={loc}>{loc}</option>)}
                             </select>
@@ -231,19 +322,31 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                         </div>
                         <div>
                             <label htmlFor="toQuinta" className={`${labelClasses} required`}>Quinta de Destino *</label>
-                            <select id="toQuinta" value={toQuinta} onChange={e => setToQuinta(e.target.value)} className={inputClasses} disabled={isConsumption} required={!isConsumption}>
+                            <select 
+                                id="toQuinta" 
+                                value={toQuinta} 
+                                onChange={e => setToQuinta(e.target.value)} 
+                                className={inputClasses} 
+                                disabled={isConsumption || (isQuintaUser && movementType === 'Entrada')} 
+                                required={!isConsumption}
+                            >
                                 <option value="">Selecione o destino</option>
                                 {!isQuintaUser && <option value="Stock Geral">Stock Geral</option>}
+                                {/* Filter to exclude the source IF it's not a generic source */}
                                 {allQuintaNames.filter(q => q !== fromQuinta).map(loc => <option key={loc} value={loc}>{loc}</option>)}
                             </select>
                         </div>
                     </div>
-                    <div className="pt-2">
-                        <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                            <input type="checkbox" checked={isConsumption} onChange={(e) => setIsConsumption(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"/>
-                            <span>Marcar como Consumo (saída de estoque sem transferência)</span>
-                        </label>
-                    </div>
+                    
+                    {movementType === 'Saída' && (
+                        <div className="pt-2">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                                <input type="checkbox" checked={isConsumption} onChange={(e) => setIsConsumption(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"/>
+                                <span>Marcar como Consumo (saída de estoque sem transferência)</span>
+                            </label>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="requesterName" className={`${labelClasses} required`}>Solicitante *</label>
@@ -251,21 +354,14 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                         </div>
                         <div>
                             <label htmlFor="toWhom" className={`${labelClasses} required`}>Para Quem/Finalidade *</label>
-                            <input type="text" id="toWhom" value={toWhom} onChange={e => setToWhom(e.target.value)} className={inputClasses} placeholder="Ex: Cliente, Evento, Reposição" required/>
+                            <input type="text" id="toWhom" value={toWhom} onChange={e => setToWhom(e.target.value)} className={inputClasses} placeholder="Ex: Produção lote X, Cliente Y, Evento" required/>
                         </div>
-                    </div>
-                     <div>
-                        <label htmlFor="movementType" className={`${labelClasses} required`}>Tipo de Movimento *</label>
-                        <select id="movementType" value={movementType} onChange={e => setMovementType(e.target.value as 'Entrada' | 'Saída')} className={inputClasses + " max-w-xs"} required>
-                            <option value="Saída">Saída</option>
-                            <option value="Entrada">Entrada</option>
-                        </select>
                     </div>
                 </fieldset>
 
                 <fieldset className="space-y-4 border p-4 rounded-md" disabled={!fromQuinta}>
                      <legend className="text-lg font-semibold px-2 text-gray-700">2. Adicionar Vinhos</legend>
-                     {!fromQuinta && <div className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md border border-yellow-200">Selecione uma Quinta de Origem para começar a adicionar vinhos.</div>}
+                     {!fromQuinta && <div className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md border border-yellow-200">Selecione uma Origem para começar a adicionar vinhos.</div>}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                          <div>
                             <label htmlFor="brand-filter" className={labelClasses}>Pesquisar pela Marca</label>
@@ -298,7 +394,16 @@ const Transferir: React.FC<TransferirProps> = ({ stock, onTransfer }) => {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                         <div>
                             <label htmlFor="quantity" className={labelClasses}>Quantidade (Garrafas) *</label>
-                            <input type="number" id="quantity" value={quantity} onChange={e => setQuantity(e.target.value === '' ? '' : Number(e.target.value))} className={inputClasses} placeholder={availableQuantity > 0 ? `Disponível: ${availableQuantity}` : ''} min="1" max={availableQuantity}/>
+                            <input 
+                                type="number" 
+                                id="quantity" 
+                                value={quantity} 
+                                onChange={e => setQuantity(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className={inputClasses} 
+                                placeholder={movementType === 'Entrada' ? "Qtd a adicionar" : (availableQuantity > 0 ? `Disponível: ${availableQuantity}` : '')} 
+                                min="1" 
+                                max={movementType === 'Entrada' ? undefined : availableQuantity}
+                            />
                         </div>
                         <div className="pt-6">
                             <button type="button" onClick={handleAddToList} disabled={!selectedWineIdentifier || !quantity} className="w-full px-4 py-2 bg-sky-600 text-white font-semibold rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
