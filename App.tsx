@@ -95,42 +95,42 @@ const AppContent: React.FC = () => {
   };
   
   const updateStockForTransfer = async (log: TransferLog) => {
-      // Use current state stock for calculation, but fetch fresh stock to ensure sync if needed
-      // For simplicity in optimistic UI, we calculate based on what we have, 
-      // but to be safe with DBs, we should clone current state.
+      // Logic for cloud-compatible granular updates
+      // Instead of dumping the whole state, we find and update specific items.
       
-      // Note: In a real backend, this logic happens on the server (Azure Function) transactionally.
-      // Here we simulate the logic on client-side.
-      
-      let currentStock = [...stock]; // Work on a copy
-
-      // Decrement source
       const sourceIdentifier = log.fromQuinta === 'Stock Geral' ? undefined : log.fromQuinta;
-      const sourceIndex = currentStock.findIndex(s => 
-          s.brand === log.brand &&
-          s.wineName === log.wineName &&
-          s.quintaName === sourceIdentifier
-      );
-      if (sourceIndex > -1) {
-          currentStock[sourceIndex] = { ...currentStock[sourceIndex], quantity: currentStock[sourceIndex].quantity - log.quantity };
+      const destIdentifier = log.toQuinta === 'Stock Geral' ? undefined : log.toQuinta;
+
+      // 1. Handle Source (Decrement)
+      if (log.fromQuinta !== 'Ajuste de Stock') { // If it's not a fresh entry/production
+          const sourceItem = stock.find(s => 
+              s.brand === log.brand &&
+              s.wineName === log.wineName &&
+              s.quintaName === sourceIdentifier
+          );
+
+          if (sourceItem) {
+              const updatedSource = { ...sourceItem, quantity: Math.max(0, sourceItem.quantity - log.quantity) };
+              await stockService.updateItem(updatedSource);
+          }
       }
       
-      // Increment destination if not consumption
+      // 2. Handle Destination (Increment)
       if (log.toQuinta !== 'Consumo') {
-          const destIdentifier = log.toQuinta === 'Stock Geral' ? undefined : log.toQuinta;
-          const destIndex = currentStock.findIndex(s => 
+          const destItem = stock.find(s => 
               s.brand === log.brand &&
               s.wineName === log.wineName &&
               s.quintaName === destIdentifier
           );
           
-          if (destIndex > -1) {
-              currentStock[destIndex] = { ...currentStock[destIndex], quantity: currentStock[destIndex].quantity + log.quantity };
+          if (destItem) {
+              const updatedDest = { ...destItem, quantity: destItem.quantity + log.quantity };
+              await stockService.updateItem(updatedDest);
           } else {
+              // Create new item in destination
+              // We need wine details (type). We try to find it from source or catalog logic.
               const originalWine = stock.find(s => s.brand === log.brand && s.wineName === log.wineName);
-              // When creating a new stock entry in destination
-              currentStock.push({
-                  id: generateId(),
+              await stockService.addWine({
                   brand: log.brand,
                   wineName: log.wineName,
                   wineType: originalWine?.wineType || 'Tinto',
@@ -139,13 +139,6 @@ const AppContent: React.FC = () => {
               });
           }
       }
-      
-      // Cleanup: Keep items in general stock even if quantity is 0.
-      // Remove items from quintas if their quantity becomes 0? Or keep them?
-      // Logic: updatedStock = currentStock.filter(s => s.quantity > 0 || !s.quintaName);
-      
-      // Send the WHOLE updated stock structure to service (inefficient for DB, but fine for simulation)
-      await stockService.updateStock(currentStock);
       
       // Fetch fresh to ensure IDs and everything is correct
       const freshStock = await stockService.getStock();

@@ -36,11 +36,23 @@ const addWine = async (newWine: Omit<StockItem, 'id'>): Promise<StockItem> => {
     }
 };
 
+// Update a single item (preferred for Cloud DBs)
+const updateItem = async (item: StockItem): Promise<void> => {
+    if (USE_CLOUD_DB) {
+        return apiService.updateStockItem(item);
+    } else {
+        const stock = storageService.getItem<StockItem[]>(STOCK_KEY, initialStock);
+        const updatedStock = stock.map(s => s.id === item.id ? item : s);
+        saveStockLocal(updatedStock);
+        return mockAsync(undefined);
+    }
+};
+
+// Deprecated for Cloud DB use, kept for compatibility if needed, but App.tsx should ideally use updateItem
 const updateStock = async (updatedStock: StockItem[]): Promise<void> => {
     if (USE_CLOUD_DB) {
-        // Warning: Bulk update depends on backend implementation. 
-        // Ideally update item by item or use a bulk endpoint.
-        return apiService.updateStock(updatedStock);
+        // Fallback: iterate and update one by one since DAB REST doesn't support bulk PUT
+        await Promise.all(updatedStock.map(item => apiService.updateStockItem(item)));
     } else {
         saveStockLocal(updatedStock);
         return mockAsync(undefined);
@@ -60,12 +72,11 @@ const deleteWine = async (id: ID): Promise<void> => {
 
 const addStockQuantity = async (id: ID, quantityToAdd: number): Promise<void> => {
     if (USE_CLOUD_DB) {
-         // Fetch current, update, send back. Ideally backend handles atomic increment.
          const stock = await apiService.getStock();
          const item = stock.find(s => s.id === id);
          if (item) {
              item.quantity += quantityToAdd;
-             await apiService.updateSingleStockItem(item);
+             await apiService.updateStockItem(item);
          }
     } else {
         const stock = storageService.getItem<StockItem[]>(STOCK_KEY, initialStock);
@@ -85,7 +96,7 @@ const removeStockQuantity = async (id: ID, quantityToRemove: number): Promise<vo
          if (item) {
              const newQuantity = item.quantity - quantityToRemove;
              item.quantity = Math.max(0, newQuantity);
-             await apiService.updateSingleStockItem(item);
+             await apiService.updateStockItem(item);
          }
     } else {
         const stock = storageService.getItem<StockItem[]>(STOCK_KEY, initialStock);
@@ -102,7 +113,8 @@ const removeStockQuantity = async (id: ID, quantityToRemove: number): Promise<vo
 export const stockService = {
     getStock,
     addWine,
-    updateStock,
+    updateItem,
+    updateStock, // Kept for legacy compatibility
     deleteWine,
     addStockQuantity,
     removeStockQuantity,
