@@ -10,21 +10,6 @@ export const users: User[] = [
     role: 'Supervisor',
   },
   {
-    id: 2,
-    username: 'operador',
-    password: '123',
-    name: 'Bruno Costa (Operador)',
-    role: 'Operador',
-    permissions: ['Stock', 'Movimentar Vinhos', 'Histórico'],
-  },
-  {
-    id: 3,
-    username: 'visitante',
-    password: '123',
-    name: 'Carlos Dias (Visitante)',
-    role: 'Visitante',
-  },
-  {
     id: 4,
     username: 'bomfim',
     password: '123',

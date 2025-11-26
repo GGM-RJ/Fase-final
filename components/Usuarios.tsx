@@ -27,9 +27,14 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onSaveUser, onDeleteUser }) 
         handleCloseModal();
     };
     
-    const handleDelete = (id: ID) => {
-        if (window.confirm('Tem certeza de que deseja excluir este usuário?')) {
-            onDeleteUser(id);
+    const handleDelete = (user: User) => {
+        if (user.role === 'Quinta') {
+            alert('Não é permitido excluir um usuário do tipo "Quinta", pois ele representa uma localização de estoque. Você pode apenas editar a senha ou o nome.');
+            return;
+        }
+
+        if (window.confirm(`Tem certeza de que deseja excluir o usuário "${user.name}"?`)) {
+            onDeleteUser(user.id);
         }
     }
 
@@ -62,11 +67,24 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onSaveUser, onDeleteUser }) 
                                 <tr key={user.id} className="bg-white border-b hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
                                     <td className="px-6 py-4">{user.username}</td>
-                                    <td className="px-6 py-4">{user.role}</td>
-                                    <td className="px-6 py-4">{user.quintaName || 'N/A'}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                            user.role === 'Quinta' ? 'bg-purple-100 text-purple-800' :
+                                            user.role === 'Supervisor' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {user.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">{user.quintaName || '-'}</td>
                                     <td className="px-6 py-4 text-center space-x-2">
                                         <button onClick={() => handleOpenModal(user)} className="font-medium text-purple-600 hover:underline">Editar</button>
-                                        <button onClick={() => handleDelete(user.id)} className="font-medium text-red-600 hover:underline">Excluir</button>
+                                        
+                                        {user.role !== 'Quinta' ? (
+                                            <button onClick={() => handleDelete(user)} className="font-medium text-red-600 hover:underline">Excluir</button>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs italic select-none" title="Usuários Quinta não podem ser excluídos">Fixo</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User } from '../types';
 import { userService } from '../services/userService';
-import { users as mockUsers } from '../data/users'; // Fallback / Mock for initial login logic
 
 interface AuthContextType {
   currentUser: User | null;
@@ -34,21 +33,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = (username: string, password: string): boolean => {
-    // Note: In a real cloud implementation, login should also be an async API call returning a token.
-    // For now, we compare against the loaded users list for role data, but verify password against mock 
-    // (since localstorage doesn't keep passwords safe, and this is a simulation).
-    
-    // 1. Find user in the full list (from DB or LocalStorage)
+    // Procura o usuário na lista carregada (que contém as edições e novos usuários do LocalStorage/DB)
     const userFound = users.find(u => u.username === username);
     
-    // 2. Find user in Mock for password verification (Simulation)
-    const mockUser = mockUsers.find(u => u.username === username);
-
-    // If using Cloud DB, authentication should really happen server-side.
-    // As a bridge, we check if the password matches the hardcoded mock.
-    if (userFound && mockUser && mockUser.password === password) {
+    // Verifica se o usuário existe e se a senha corresponde
+    if (userFound && userFound.password === password) {
       const userToStore = { ...userFound };
-      // Do not store password
+      // Remove a senha antes de salvar na sessão por segurança
       delete userToStore.password; 
       setCurrentUser(userToStore);
       localStorage.setItem('currentUser', JSON.stringify(userToStore));
