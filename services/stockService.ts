@@ -39,7 +39,7 @@ const addWine = async (newWine: Omit<StockItem, 'id'>): Promise<StockItem> => {
 // Update a single item (preferred for Cloud DBs)
 const updateItem = async (item: StockItem): Promise<void> => {
     if (USE_CLOUD_DB) {
-        return apiService.updateStockItem(item);
+        await apiService.updateStockItem(item);
     } else {
         const stock = storageService.getItem<StockItem[]>(STOCK_KEY, initialStock);
         const updatedStock = stock.map(s => s.id === item.id ? item : s);
