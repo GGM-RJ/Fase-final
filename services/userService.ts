@@ -1,6 +1,7 @@
-import { User } from '../types';
+import { User, ID } from '../types';
 import { storageService } from './storageService';
 import { users as mockUsers } from '../data/users';
+import { generateId } from '../utils/idGenerator';
 
 const USERS_KEY = 'users';
 
@@ -22,9 +23,9 @@ const saveUser = (user: Omit<User, 'id'> | User): User => {
         savedUser = user;
     } else {
         // Add
-        const newUser = {
+        const newUser: User = {
             ...user,
-            id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+            id: generateId(),
         };
         const updatedUsers = [...users, newUser];
         saveUsers(updatedUsers);
@@ -33,7 +34,7 @@ const saveUser = (user: Omit<User, 'id'> | User): User => {
     return savedUser;
 };
 
-const deleteUser = (id: number): void => {
+const deleteUser = (id: ID): void => {
     let users = getUsers();
     users = users.filter(u => u.id !== id);
     saveUsers(users);

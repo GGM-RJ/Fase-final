@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, ID } from '../types';
 import AddUserModal from './AddUserModal';
 
 interface UsuariosProps {
     users: User[];
     onSaveUser: (user: Omit<User, 'id'> | User) => void;
-    onDeleteUser: (id: number) => void;
+    onDeleteUser: (id: ID) => void;
 }
 
 const Usuarios: React.FC<UsuariosProps> = ({ users, onSaveUser, onDeleteUser }) => {
@@ -27,7 +27,7 @@ const Usuarios: React.FC<UsuariosProps> = ({ users, onSaveUser, onDeleteUser }) 
         handleCloseModal();
     };
     
-    const handleDelete = (id: number) => {
+    const handleDelete = (id: ID) => {
         if (window.confirm('Tem certeza de que deseja excluir este usuário?')) {
             onDeleteUser(id);
         }

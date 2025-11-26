@@ -15,8 +15,9 @@ import Footer from './components/Footer';
 import { stockService } from './services/stockService';
 import { transferService } from './services/transferService';
 import { userService } from './services/userService';
+import { generateId } from './utils/idGenerator';
 
-import { StockItem, TransferLog, User } from './types';
+import { StockItem, TransferLog, User, ID } from './types';
 
 export type Page = 'Dashboard' | 'Vinhos' | 'Stock' | 'Movimentar Vinhos' | 'Histórico' | 'Relatórios' | 'Usuários';
 
@@ -51,10 +52,9 @@ const AppContent: React.FC = () => {
       
       const status = currentUser?.role === 'Quinta' ? 'Pendente' : (canAutoApprove ? 'Aprovado' : 'Pendente');
 
-      const allHistory = transferService.getTransferHistory();
       const newLog: TransferLog = {
           ...transferLog,
-          id: allHistory.length > 0 ? Math.max(...allHistory.map(t => t.id)) + 1 : 1,
+          id: generateId(), // Changed to support string IDs for Cosmos DB
           date: new Date(),
           status: status,
       };
@@ -98,8 +98,9 @@ const AppContent: React.FC = () => {
               currentStock[destIndex].quantity += log.quantity;
           } else {
               const originalWine = stockService.getStock().find(s => s.brand === log.brand && s.wineName === log.wineName);
+              // When creating a new stock entry in destination, ensure we have a fresh ID
               currentStock.push({
-                  id: Math.max(...currentStock.map(i => i.id)) + 1,
+                  id: generateId(),
                   brand: log.brand,
                   wineName: log.wineName,
                   wineType: originalWine?.wineType || 'Tinto',
@@ -116,7 +117,7 @@ const AppContent: React.FC = () => {
       setStock(updatedStock);
   };
 
-  const handleApproval = (id: number, newStatus: 'Aprovado' | 'Reprovado') => {
+  const handleApproval = (id: ID, newStatus: 'Aprovado' | 'Reprovado') => {
       const history = transferService.getTransferHistory();
       const transferToProcess = history.find(log => log.id === id);
 
@@ -139,7 +140,7 @@ const AppContent: React.FC = () => {
     setUsers(userService.getUsers());
   };
 
-  const handleDeleteUser = (id: number) => {
+  const handleDeleteUser = (id: ID) => {
       if (currentUser.id === id) {
           alert("Você não pode deletar seu próprio usuário.");
           return;
@@ -148,7 +149,7 @@ const AppContent: React.FC = () => {
       setUsers(userService.getUsers());
   }
 
-  const handleDeleteWine = (id: number) => {
+  const handleDeleteWine = (id: ID) => {
       if (currentUser?.role !== 'Supervisor') {
           alert("Apenas supervisores podem excluir vinhos.");
           return;
@@ -184,7 +185,7 @@ const AppContent: React.FC = () => {
       setStock(stockService.getStock()); // Re-fetch to update UI
   };
 
-  const handleAddStockQuantity = (id: number, quantityToAdd: number) => {
+  const handleAddStockQuantity = (id: ID, quantityToAdd: number) => {
     if (currentUser?.role !== 'Supervisor') {
         alert("Apenas supervisores podem ajustar o stock.");
         return;
@@ -193,7 +194,7 @@ const AppContent: React.FC = () => {
     setStock(stockService.getStock());
   };
 
-  const handleRemoveStockQuantity = (id: number, quantityToRemove: number) => {
+  const handleRemoveStockQuantity = (id: ID, quantityToRemove: number) => {
     if (currentUser?.role !== 'Supervisor') {
         alert("Apenas supervisores podem ajustar o stock.");
         return;

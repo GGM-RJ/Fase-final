@@ -1,6 +1,7 @@
-import { StockItem } from '../types';
+import { StockItem, ID } from '../types';
 import { storageService } from './storageService';
 import { initialStock } from '../data/wines';
+import { generateId } from '../utils/idGenerator';
 
 const STOCK_KEY = 'stock';
 
@@ -14,9 +15,10 @@ const saveStock = (stock: StockItem[]): void => {
 
 const addWine = (newWine: Omit<StockItem, 'id'>): StockItem => {
     const stock = getStock();
+    // Use generateId() for Cosmos DB compatibility (string IDs)
     const newStockItem: StockItem = {
         ...newWine,
-        id: stock.length > 0 ? Math.max(...stock.map(i => i.id)) + 1 : 1,
+        id: generateId(),
     };
     const updatedStock = [...stock, newStockItem];
     saveStock(updatedStock);
@@ -27,13 +29,13 @@ const updateStock = (updatedStock: StockItem[]): void => {
     saveStock(updatedStock);
 };
 
-const deleteWine = (id: number): void => {
+const deleteWine = (id: ID): void => {
     let stock = getStock();
     stock = stock.filter(item => item.id !== id);
     saveStock(stock);
 };
 
-const addStockQuantity = (id: number, quantityToAdd: number): void => {
+const addStockQuantity = (id: ID, quantityToAdd: number): void => {
     const stock = getStock();
     const itemIndex = stock.findIndex(item => item.id === id);
     if (itemIndex > -1) {
@@ -42,7 +44,7 @@ const addStockQuantity = (id: number, quantityToAdd: number): void => {
     }
 };
 
-const removeStockQuantity = (id: number, quantityToRemove: number): void => {
+const removeStockQuantity = (id: ID, quantityToRemove: number): void => {
     const stock = getStock();
     const itemIndex = stock.findIndex(item => item.id === id);
     if (itemIndex > -1) {

@@ -1,8 +1,11 @@
 // FIX: Define types used across the application to resolve import errors.
 export type WineType = 'Tinto' | 'Branco' | 'Rosé' | 'Porto' | 'Espumante';
 
+// Cosmos DB uses string IDs usually, so we allow both for migration
+export type ID = string | number;
+
 export interface StockItem {
-  id: number;
+  id: ID;
   brand: string;
   wineName: string;
   wineType: WineType;
@@ -14,7 +17,7 @@ export interface StockItem {
 export type TransferStatus = 'Pendente' | 'Aprovado' | 'Reprovado';
 
 export interface TransferLog {
-    id: number;
+    id: ID;
     date: Date;
     brand: string;
     wineName: string;
@@ -35,7 +38,7 @@ export type Permission = 'Vinhos' | 'Stock' | 'Movimentar Vinhos' | 'Histórico'
 
 
 export interface User {
-  id: number;
+  id: ID;
   username: string;
   password?: string; // Not always present on client-side user object
   name: string;

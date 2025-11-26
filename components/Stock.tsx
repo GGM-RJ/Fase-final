@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StockItem } from '../types';
+import { StockItem, ID } from '../types';
 import AddWineModal from './AddWineModal';
 import AdjustStockModal from './AdjustStockModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,9 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 interface StockProps {
   stock: StockItem[];
   onAddWine: (newWine: Omit<StockItem, 'id'>) => void;
-  onDeleteWine: (id: number) => void;
-  onAddStockQuantity: (id: number, quantity: number) => void;
-  onRemoveStockQuantity: (id: number, quantity: number) => void;
+  onDeleteWine: (id: ID) => void;
+  onAddStockQuantity: (id: ID, quantity: number) => void;
+  onRemoveStockQuantity: (id: ID, quantity: number) => void;
 }
 
 const Stock: React.FC<StockProps> = ({ stock, onAddWine, onDeleteWine, onAddStockQuantity, onRemoveStockQuantity }) => {

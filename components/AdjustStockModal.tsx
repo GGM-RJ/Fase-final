@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StockItem } from '../types';
+import { StockItem, ID } from '../types';
 
 interface AdjustStockModalProps {
     isOpen: boolean;
     onClose: () => void;
     wine: StockItem | null;
-    onAddQuantity: (id: number, quantity: number) => void;
-    onRemoveQuantity: (id: number, quantity: number) => void;
+    onAddQuantity: (id: ID, quantity: number) => void;
+    onRemoveQuantity: (id: ID, quantity: number) => void;
 }
 
 const AdjustStockModal: React.FC<AdjustStockModalProps> = ({ isOpen, onClose, wine, onAddQuantity, onRemoveQuantity }) => {

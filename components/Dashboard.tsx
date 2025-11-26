@@ -1,6 +1,6 @@
 // FIX: Provide full implementation for the Dashboard component.
 import React from 'react';
-import { StockItem, TransferLog } from '../types';
+import { StockItem, TransferLog, ID } from '../types';
 import StatCard from './StatCard';
 import { quintaService } from '../services/quintaService';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,8 +16,8 @@ interface DashboardProps {
     stock: StockItem[];
     transferHistory: TransferLog[];
     pendingTransfers: TransferLog[];
-    onApprove: (id: number) => void;
-    onReject: (id: number) => void;
+    onApprove: (id: ID) => void;
+    onReject: (id: ID) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ stock, transferHistory, pendingTransfers, onApprove, onReject }) => {

@@ -1,6 +1,7 @@
 import { TransferLog } from '../types';
 import { storageService } from './storageService';
 import { transferHistory as initialHistory } from '../data/dashboardData';
+import { generateId } from '../utils/idGenerator';
 
 const HISTORY_KEY = 'transferHistory';
 
@@ -14,7 +15,12 @@ const saveTransferHistory = (history: TransferLog[]): void => {
 
 const addTransfer = (newLog: TransferLog): void => {
     const history = getTransferHistory();
-    const updatedHistory = [newLog, ...history];
+    // Ensure ID is generated if not provided (though App.tsx usually provides logic, we centralize safety here)
+    const logWithId = {
+        ...newLog,
+        id: newLog.id || generateId()
+    };
+    const updatedHistory = [logWithId, ...history];
     saveTransferHistory(updatedHistory);
 };
 
