@@ -27,12 +27,30 @@ const AppContent: React.FC = () => {
   
   const [stock, setStock] = useState<StockItem[]>([]);
   const [transferHistory, setTransferHistory] = useState<TransferLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load data from services on initial render
+  const refreshData = async () => {
+      setIsLoading(true);
+      try {
+        const [loadedStock, loadedHistory] = await Promise.all([
+            stockService.getStock(),
+            transferService.getTransferHistory()
+        ]);
+        setStock(loadedStock);
+        setTransferHistory(loadedHistory);
+      } catch (error) {
+          console.error("Failed to load data", error);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   useEffect(() => {
-    setStock(stockService.getStock());
-    setTransferHistory(transferService.getTransferHistory());
-  }, []);
+    if (currentUser) {
+        refreshData();
+    }
+  }, [currentUser]);
 
 
   if (!currentUser) {
@@ -41,12 +59,14 @@ const AppContent: React.FC = () => {
 
   const pendingTransfers = transferHistory.filter(t => t.status === 'Pendente');
 
-  const handleAddWine = (newWine: Omit<StockItem, 'id'>) => {
-    stockService.addWine(newWine);
-    setStock(stockService.getStock()); // Re-fetch to update UI
+  const handleAddWine = async (newWine: Omit<StockItem, 'id'>) => {
+    await stockService.addWine(newWine);
+    // Refresh to get new ID and updated state
+    const updatedStock = await stockService.getStock();
+    setStock(updatedStock);
   };
   
-  const handleTransfer = (transferLog: Omit<TransferLog, 'id' | 'date' | 'status'>) => {
+  const handleTransfer = async (transferLog: Omit<TransferLog, 'id' | 'date' | 'status'>) => {
       const canAutoApprove = currentUser?.role === 'Supervisor' || 
                              (currentUser?.role === 'Operador' && currentUser.permissions?.includes('Aprovar'));
       
@@ -54,7 +74,7 @@ const AppContent: React.FC = () => {
 
       const newLog: TransferLog = {
           ...transferLog,
-          id: generateId(), // Changed to support string IDs for Cosmos DB
+          id: generateId(), 
           date: new Date(),
           status: status,
       };
@@ -63,17 +83,27 @@ const AppContent: React.FC = () => {
           newLog.approverName = currentUser?.name;
       }
       
-      transferService.addTransfer(newLog);
-      setTransferHistory(transferService.getTransferHistory());
+      await transferService.addTransfer(newLog);
+      
+      // Update history state
+      const updatedHistory = await transferService.getTransferHistory();
+      setTransferHistory(updatedHistory);
 
       if (status === 'Aprovado') {
-          updateStockForTransfer(newLog);
+          await updateStockForTransfer(newLog);
       }
   };
   
-  const updateStockForTransfer = (log: TransferLog) => {
-      const currentStock = stockService.getStock();
+  const updateStockForTransfer = async (log: TransferLog) => {
+      // Use current state stock for calculation, but fetch fresh stock to ensure sync if needed
+      // For simplicity in optimistic UI, we calculate based on what we have, 
+      // but to be safe with DBs, we should clone current state.
       
+      // Note: In a real backend, this logic happens on the server (Azure Function) transactionally.
+      // Here we simulate the logic on client-side.
+      
+      let currentStock = [...stock]; // Work on a copy
+
       // Decrement source
       const sourceIdentifier = log.fromQuinta === 'Stock Geral' ? undefined : log.fromQuinta;
       const sourceIndex = currentStock.findIndex(s => 
@@ -82,7 +112,7 @@ const AppContent: React.FC = () => {
           s.quintaName === sourceIdentifier
       );
       if (sourceIndex > -1) {
-          currentStock[sourceIndex].quantity -= log.quantity;
+          currentStock[sourceIndex] = { ...currentStock[sourceIndex], quantity: currentStock[sourceIndex].quantity - log.quantity };
       }
       
       // Increment destination if not consumption
@@ -95,10 +125,10 @@ const AppContent: React.FC = () => {
           );
           
           if (destIndex > -1) {
-              currentStock[destIndex].quantity += log.quantity;
+              currentStock[destIndex] = { ...currentStock[destIndex], quantity: currentStock[destIndex].quantity + log.quantity };
           } else {
-              const originalWine = stockService.getStock().find(s => s.brand === log.brand && s.wineName === log.wineName);
-              // When creating a new stock entry in destination, ensure we have a fresh ID
+              const originalWine = stock.find(s => s.brand === log.brand && s.wineName === log.wineName);
+              // When creating a new stock entry in destination
               currentStock.push({
                   id: generateId(),
                   brand: log.brand,
@@ -110,53 +140,62 @@ const AppContent: React.FC = () => {
           }
       }
       
-      // Keep items in general stock even if quantity is 0.
-      // Remove items from quintas if their quantity becomes 0.
-      const updatedStock = currentStock.filter(s => s.quantity > 0 || !s.quintaName);
-      stockService.updateStock(updatedStock);
-      setStock(updatedStock);
+      // Cleanup: Keep items in general stock even if quantity is 0.
+      // Remove items from quintas if their quantity becomes 0? Or keep them?
+      // Logic: updatedStock = currentStock.filter(s => s.quantity > 0 || !s.quintaName);
+      
+      // Send the WHOLE updated stock structure to service (inefficient for DB, but fine for simulation)
+      await stockService.updateStock(currentStock);
+      
+      // Fetch fresh to ensure IDs and everything is correct
+      const freshStock = await stockService.getStock();
+      setStock(freshStock);
   };
 
-  const handleApproval = (id: ID, newStatus: 'Aprovado' | 'Reprovado') => {
-      const history = transferService.getTransferHistory();
-      const transferToProcess = history.find(log => log.id === id);
+  const handleApproval = async (id: ID, newStatus: 'Aprovado' | 'Reprovado') => {
+      const transferToProcess = transferHistory.find(log => log.id === id);
 
       if (transferToProcess) {
-          transferToProcess.status = newStatus;
+          const updatedTransfer = { ...transferToProcess, status: newStatus };
           if (newStatus === 'Aprovado') {
-            transferToProcess.approverName = currentUser?.name;
+            updatedTransfer.approverName = currentUser?.name;
           }
-          transferService.updateTransfer(transferToProcess);
-          setTransferHistory(transferService.getTransferHistory());
+          
+          await transferService.updateTransfer(updatedTransfer);
+          
+          const updatedHistory = await transferService.getTransferHistory();
+          setTransferHistory(updatedHistory);
 
           if (newStatus === 'Aprovado') {
-              updateStockForTransfer(transferToProcess);
+              await updateStockForTransfer(updatedTransfer);
           }
       }
   };
 
-  const handleSaveUser = (user: Omit<User, 'id'> | User) => {
-    userService.saveUser(user);
-    setUsers(userService.getUsers());
+  const handleSaveUser = async (user: Omit<User, 'id'> | User) => {
+    await userService.saveUser(user);
+    const updatedUsers = await userService.getUsers();
+    setUsers(updatedUsers);
   };
 
-  const handleDeleteUser = (id: ID) => {
+  const handleDeleteUser = async (id: ID) => {
       if (currentUser.id === id) {
           alert("Você não pode deletar seu próprio usuário.");
           return;
       }
-      userService.deleteUser(id);
-      setUsers(userService.getUsers());
+      await userService.deleteUser(id);
+      const updatedUsers = await userService.getUsers();
+      setUsers(updatedUsers);
   }
 
-  const handleDeleteWine = (id: ID) => {
+  const handleDeleteWine = async (id: ID) => {
       if (currentUser?.role !== 'Supervisor') {
           alert("Apenas supervisores podem excluir vinhos.");
           return;
       }
 
-      const currentStock = stockService.getStock();
-      const wineToDelete = currentStock.find(item => item.id === id);
+      // Use LOCAL state stock to check conditions (fastest)
+      const wineToDelete = stock.find(item => item.id === id);
 
       if (!wineToDelete) {
           alert("Vinho não encontrado.");
@@ -170,7 +209,7 @@ const AppContent: React.FC = () => {
       }
 
       // Check 2: Must not exist in any Quinta's stock
-      const isInQuintaStock = currentStock.some(item => 
+      const isInQuintaStock = stock.some(item => 
           item.brand === wineToDelete.brand &&
           item.wineName === wineToDelete.wineName &&
           item.quintaName // This item is in a quinta's stock
@@ -181,30 +220,42 @@ const AppContent: React.FC = () => {
           return;
       }
 
-      stockService.deleteWine(id);
-      setStock(stockService.getStock()); // Re-fetch to update UI
+      await stockService.deleteWine(id);
+      const updatedStock = await stockService.getStock();
+      setStock(updatedStock); 
   };
 
-  const handleAddStockQuantity = (id: ID, quantityToAdd: number) => {
+  const handleAddStockQuantity = async (id: ID, quantityToAdd: number) => {
     if (currentUser?.role !== 'Supervisor') {
         alert("Apenas supervisores podem ajustar o stock.");
         return;
     }
-    stockService.addStockQuantity(id, quantityToAdd);
-    setStock(stockService.getStock());
+    await stockService.addStockQuantity(id, quantityToAdd);
+    const updatedStock = await stockService.getStock();
+    setStock(updatedStock); 
   };
 
-  const handleRemoveStockQuantity = (id: ID, quantityToRemove: number) => {
+  const handleRemoveStockQuantity = async (id: ID, quantityToRemove: number) => {
     if (currentUser?.role !== 'Supervisor') {
         alert("Apenas supervisores podem ajustar o stock.");
         return;
     }
-    stockService.removeStockQuantity(id, quantityToRemove);
-    setStock(stockService.getStock());
+    await stockService.removeStockQuantity(id, quantityToRemove);
+    const updatedStock = await stockService.getStock();
+    setStock(updatedStock); 
   };
 
 
   const renderPage = () => {
+    if (isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <span className="ml-3 text-gray-600">Carregando dados...</span>
+            </div>
+        );
+    }
+
     switch (activePage) {
       case 'Dashboard':
         return <Dashboard 
